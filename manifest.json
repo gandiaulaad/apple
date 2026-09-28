@@ -1,7 +1,7 @@
 {
   "name": "Apple Emoji",
-  "description": "Shows Apple-style emoji in Discord messages",
+  "description": "Shows Apple-style emoji in Discord messages (debug build)",
   "authors": [{ "name": "me" }],
   "main": "index.js",
-  "hash": "1"
+  "hash": "2"
 }
