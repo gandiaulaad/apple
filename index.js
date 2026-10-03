@@ -1,81 +1,137 @@
-(function () {
-  var APPLE = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/";
-  var unpatch = null;
-  var told = false;
+// language: JavaScript, file: index.js
+const { React } = require("@vendetta/metro/common");
+const { findByName, findByProps } = require("@vendetta/metro");
+const { after } = require("@vendetta/patcher");
+const { storage } = require("@vendetta/plugin");
+const { Image } = require("react-native");
 
-  function say(t) {
-    try { vendetta.ui.toasts.showToast(t); } catch (e) {}
+storage.enabled ??= true;
+storage.size ??= 20;
+storage.cdn ??= "https://cdn.jsdelivr.net/gh/iamcal/emoji-data@master/img-apple-160";
+
+const EMOJI_RE =
+  /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic}|\p{Emoji_Modifier})*)/gu;
+
+function toCodePoints(emoji) {
+  const out = [];
+  for (const ch of emoji) {
+    const cp = ch.codePointAt(0);
+    if (cp === undefined || cp === 0xfe0f) continue;
+    out.push(cp.toString(16));
   }
+  return out.join("-");
+}
 
-  function code(s) {
-    var out = [];
-    var chars = Array.from(s);
-    for (var i = 0; i < chars.length; i++) {
-      out.push(chars[i].codePointAt(0).toString(16).padStart(4, "0"));
+function emojiUri(emoji) {
+  return `${storage.cdn}/${toCodePoints(emoji)}.png`;
+}
+
+function transformNode(node, size, keyBase = "ae") {
+  if (typeof node === "string") {
+    const parts = [];
+    let last = 0;
+    for (const m of node.matchAll(EMOJI_RE)) {
+      const idx = m.index ?? 0;
+      if (idx > last) parts.push(node.slice(last, idx));
+      parts.push({ __emoji: m[0] });
+      last = idx + m[0].length;
     }
-    return out.join("-");
+    if (last < node.length) parts.push(node.slice(last));
+    if (parts.length === 1 && typeof parts[0] === "string") return node;
+
+    return parts.map((p, i) =>
+      typeof p === "string"
+        ? p
+        : React.createElement(Image, {
+            key: `${keyBase}-${i}`,
+            source: { uri: emojiUri(p.__emoji) },
+            style: { width: size, height: size },
+          }),
+    );
   }
 
-  function fix(nodes) {
-    if (!Array.isArray(nodes)) return;
-    for (var i = 0; i < nodes.length; i++) {
-      var n = nodes[i];
-      if (!n || typeof n !== "object") continue;
-      if (n.type === "emoji" && n.surrogate && typeof n.surrogate === "string") {
-        var url = APPLE + code(n.surrogate) + ".png";
-        var jumbo = typeof n.jumboable === "boolean" ? n.jumboable : false;
-        nodes[i] = {
-          type: "customEmoji",
-          id: "0",
-          alt: n.content || n.surrogate,
-          src: url,
-          frozenSrc: url,
-          jumboable: jumbo,
-        };
-        if (!told) {
-          told = true;
-          say("Apple Emoji: emoji badle gaye");
-        }
-        continue;
-      }
-      if (Array.isArray(n.content)) fix(n.content);
-    }
-  }
+  if (Array.isArray(node))
+    return node.map((n, i) => transformNode(n, size, `${keyBase}-${i}`));
 
-  function patchRows(args) {
-    try {
-      if (typeof args[1] !== "string") return;
-      var rows = JSON.parse(args[1]);
-      for (var i = 0; i < rows.length; i++) {
-        var m = rows[i] && rows[i].message;
-        if (!m) continue;
-        fix(m.content);
-        if (m.referencedMessage && m.referencedMessage.message) {
-          fix(m.referencedMessage.message.content);
-        }
-      }
-      args[1] = JSON.stringify(rows);
-    } catch (e) {}
-  }
+  if (React.isValidElement(node) && node.props?.children)
+    return React.cloneElement(
+      node,
+      { ...node.props },
+      transformNode(node.props.children, size, `${keyBase}-c`),
+    );
 
-  return {
-    onLoad: function () {
+  return node;
+}
+
+const MessageContentModule =
+  findByName("MessageContent") ??
+  findByProps("MessageContent") ??
+  findByProps("MessageContentInner");
+
+const patches = [];
+
+function onLoad() {
+  if (!MessageContentModule) return;
+  patches.push(
+    after("default", MessageContentModule, (_args, ret) => {
+      if (!storage.enabled) return ret;
       try {
-        var RN = vendetta.metro.common.ReactNative;
-        var CM = RN.NativeModules.DCDChatManager || RN.NativeModules.NativeChatModule;
-        if (CM && typeof CM.updateRows === "function") {
-          unpatch = vendetta.patcher.before("updateRows", CM, patchRows);
-        } else {
-          say("Apple Emoji: updateRows NAHI mila");
-        }
-      } catch (e) {
-        say("Apple Emoji: error - " + String(e).slice(0, 80));
+        return transformNode(ret, storage.size);
+      } catch {
+        return ret;
       }
-    },
-    onUnload: function () {
-      if (unpatch) unpatch();
-      unpatch = null;
-    },
-  };
-})()
-      
+    }),
+  );
+}
+
+function onUnload() {
+  for (const unpatch of patches.splice(0)) unpatch();
+}
+
+const { Forms } = require("@vendetta/ui/components");
+const { FormSection, FormRow, FormSwitch, FormInput } = Forms;
+
+function settings() {
+  const [, forceUpdate] = React.useReducer((x) => ~x, 0);
+  const rerender = () => forceUpdate();
+
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(
+      FormSection,
+      { title: "Apple Emoji" },
+      React.createElement(FormRow, {
+        label: "Enabled",
+        subLabel: "Swap unicode emoji to Apple images",
+        trailing: React.createElement(FormSwitch, {
+          value: storage.enabled,
+          onValueChange: (v) => { storage.enabled = v; rerender(); },
+        }),
+      }),
+      React.createElement(FormRow, {
+        label: "Size (px)",
+        subLabel: `current: ${storage.size}`,
+        trailing: React.createElement(FormInput, {
+          value: String(storage.size),
+          keyboardType: "numeric",
+          onChange: (v) => {
+            const n = parseInt(v, 10);
+            if (!Number.isNaN(n) && n > 0 && n < 128) storage.size = n;
+            rerender();
+          },
+        }),
+      }),
+      React.createElement(FormRow, {
+        label: "CDN base",
+        subLabel: storage.cdn,
+        trailing: React.createElement(FormInput, {
+          value: storage.cdn,
+          onChange: (v) => { storage.cdn = v.trim(); rerender(); },
+        }),
+      }),
+    ),
+  );
+}
+
+module.exports = { onLoad, onUnload, settings };
