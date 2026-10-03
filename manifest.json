@@ -2,7 +2,7 @@
   "name": "Apple Emoji",
   "description": "Renders unicode emoji as Apple-style images in Android Discord message bodies.",
   "authors": [{ "name": "Lunar" }],
-  "main": "https://raw.githubusercontent.com/gandiaulaad/apple/main/index.js",
+  "main": "index.js",
   "version": "1.0.0",
   "vendetta": { "icon": "ic_emoji_24px" }
 }
