@@ -1,13 +1,18 @@
 {
+  "format": 1,
+  "id": "com.lunar.appleemoji",
   "name": "Apple Emoji",
-  "description": "Renders unicode emoji as Apple-style images in Android Discord message bodies.",
+  "version": "1.0.0",
+  "description": "Renders Unicode emoji as Apple-style images in Android Discord message bodies.",
   "authors": [
-    {
-      "name": "Lunar"
-    }
+    "Lunar"
   ],
-  "main": "index.js",
-  "vendetta": {
-    "icon": "ic_emoji_24px"
+  "dependencies": {
+    "revenge.api": {
+      "version": ">=1"
+    }
+  },
+  "dist": {
+    "script": "index.js"
   }
 }
