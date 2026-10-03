@@ -1,4 +1,3 @@
-// language: JavaScript, file: index.js
 const { React } = require("@vendetta/metro/common");
 const { findByName, findByProps } = require("@vendetta/metro");
 const { after } = require("@vendetta/patcher");
@@ -30,12 +29,14 @@ function transformNode(node, size, keyBase = "ae") {
   if (typeof node === "string") {
     const parts = [];
     let last = 0;
+
     for (const m of node.matchAll(EMOJI_RE)) {
       const idx = m.index ?? 0;
       if (idx > last) parts.push(node.slice(last, idx));
       parts.push({ __emoji: m[0] });
       last = idx + m[0].length;
     }
+
     if (last < node.length) parts.push(node.slice(last));
     if (parts.length === 1 && typeof parts[0] === "string") return node;
 
@@ -72,9 +73,11 @@ const patches = [];
 
 function onLoad() {
   if (!MessageContentModule) return;
+
   patches.push(
     after("default", MessageContentModule, (_args, ret) => {
       if (!storage.enabled) return ret;
+
       try {
         return transformNode(ret, storage.size);
       } catch {
@@ -106,7 +109,10 @@ function settings() {
         subLabel: "Swap unicode emoji to Apple images",
         trailing: React.createElement(FormSwitch, {
           value: storage.enabled,
-          onValueChange: (v) => { storage.enabled = v; rerender(); },
+          onValueChange: (v) => {
+            storage.enabled = v;
+            rerender();
+          },
         }),
       }),
       React.createElement(FormRow, {
@@ -127,7 +133,10 @@ function settings() {
         subLabel: storage.cdn,
         trailing: React.createElement(FormInput, {
           value: storage.cdn,
-          onChange: (v) => { storage.cdn = v.trim(); rerender(); },
+          onChange: (v) => {
+            storage.cdn = v.trim();
+            rerender();
+          },
         }),
       }),
     ),
