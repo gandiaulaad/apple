@@ -6,7 +6,7 @@
       "name": "Lunar"
     }
   ],
-  "main": "https://raw.githubusercontent.com/gandiaulaad/apple/refs/heads/main/index.js",
+  "main": "https://gandiaulaad.github.io/apple/index.js",
   "vendetta": {
     "icon": "ic_emoji_24px"
   }
